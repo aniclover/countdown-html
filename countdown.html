@@ -1,0 +1,206 @@
+<html>
+  <head>
+    <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <link rel="stylesheet" type="text/css" href="assets/Counter.css">
+    <style>
+      body {
+        font-family: 'PosteramaText-Regular';
+        font-size: 20pt;
+        text-shadow: -1px -1px 1px #be1e2d, 1px 1px 2px #be1e2d;
+        -webkit-text-stroke: 0.3px black;
+        color: #fff;
+        background-color: rgba(0, 0, 0, 0);;
+        padding: 0 0 0 0;
+        margin: 0 0 0 0;
+      }
+      .bold {
+        font-family: 'PosteramaText-Bold'
+      }
+      .minor-container {
+        position: absolute;
+        margin-top: 170px;
+        margin-left: 50px;
+      }
+      .major-container {
+        position: absolute;
+        width: 300px;
+        margin-top: 7px;
+        margin-left: 1193px;
+      }
+      .major-content {
+        margin: auto;
+        width: 90%;
+        font-size: 20pt;
+        text-align: center;
+      }
+      .host {
+        font-size: 36pt;
+      }
+      .hosted-timer {
+        position: absolute;
+        font-size: 128pt;
+        text-align:center;
+        margin: auto;
+        width: 100%;
+        margin-top: 400px;
+      }
+      .preload {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="countdown">
+      <div class="minor-container" v-show="seconds>=0">
+        <span class="bold">NEXT REGION:</span>
+        {{city}} in {{hourFmt}}{{minutes.toString().padStart(2, 0)}}:{{seconds.toString().padStart(2, 0)}}
+      </div>
+      <div class="major-container" v-show="host">
+        <div class="major-content">
+          <img v-bind:src="countdownImg">
+        </div>
+      </div>
+      <div class="preload" v-for="imgSrc in city_hosts">
+        <img v-bind:src="imgSrc">
+      </div>
+    </div>
+    <script>
+      const NULL_IMG = '../transparent.png'
+      const REF_DATETIME_STR = '2021-01-01T00:00:00'
+      var CITY_OFFSETS = [
+        { offset: '+14:00', city: 'UTC+14 Apia, Tabwakea Village, Line Islands' },
+        { offset: '+13:00', city: 'UTC+13 Auckland, Suva (Fiji), Tokelau, Tonga' },
+        { offset: '+12:00', city: 'UTC+12 Marshall Islands, Nauru, Tuvalu, Petroavlovsk-Kamchatsky' },
+        { offset: '+11:00', city: 'UTC+11 Sydney, Nouméa, Solomon Islands, Vanuatu, Yuzhno-Sakhalinsk' },
+        { offset: '+10:00', city: 'UTC+10 Brisbane, Guam, Papua New Guinea, Khabarovsk' },
+        { offset: '+09:00', city: 'UTC+9 Tokyo, Seoul, East Timor, Yakutsk' },
+        { offset: '+08:00', city: 'UTC+8 Singapore, Taipei, Beijing, Kuala Lumpur, Ulan Bator, Irkutsk' },
+        { offset: '+07:00', city: 'UTC+7 Bangkok, Jakarta, Hanoi, Phnom Penh, Novosibirsk' },
+        { offset: '+06:00', city: 'UTC+6 Dhaka, Thumphu (Bhutan), Bishkek (Kyrgyzstan), Omsk' },
+        { offset: '+05:00', city: 'UTC+5 Karachi, Tashkent, Malé (Maldives), Yekaterinburg' },
+        { offset: '+04:00', city: 'UTC+4 Dubai, Seychelles, Tbilisi, Samara' },
+        { offset: '+03:00', city: 'UTC+3 Moscow, Istanbul, Baghdad, Djibouti' },
+        { offset: '+02:00', city: 'UTC+2 Helsinki, Cairo, Athens, Jerusalem, Harare' },
+        { offset: '+01:00', city: 'UTC+1 Amsterdam, Berlin, Brussels, Gibraltar, Tunis' },
+        { offset: '+00:00', city: 'UTC+0 London, Lisbon, Monrovia, Canary Islands' },
+        { offset: '-01:00', city: 'UTC-1 Ponta Delgada, Ittoqqortoormiit' },
+        { offset: '-02:00', city: 'UTC-2 Fernando de Noronha, South Georgia & South Sandwich Islands' },
+        { offset: '-03:00', city: 'UTC-3 São Paulo, Buenos Aires, Santiago, Nuuk' },
+        { offset: '-04:00', city: 'UTC-4 Halifax, Caracas, Santo Domingo, Pitugfik' },
+        { offset: '-05:00', city: 'UTC-5 New York, Toronto, Lima, Port-au-Prince, Bogotá' },
+        { offset: '-06:00', city: 'UTC-6 Chicago, Winnipeg, Mexico City, Managua' },
+        { offset: '-07:00', city: 'UTC-7 Edmonton, Denver, Ciudad Juárez' },
+        { offset: '-08:00', city: 'UTC-8 San Francisco, Vancouver, Los Angeles, Tijuana' },
+        { offset: '-09:00', city: 'UTC-9 Anchorage, Rikitea' },
+        { offset: '-10:00', city: 'UTC-10 Honolulu, Avarua (Cook Islands)' },
+        { offset: '-11:00', city: 'UTC-11 Tāfuna, Alofi (Niue)' },
+        { offset: '-12:00', city: 'UTC-12 Uninhabited Islands' }
+      ]
+      const CITY_HOSTS = {
+        '+09:00': "aucd_countdown_meltup.png",
+        '+08:00': "aucd_countdown_sgtw.png",
+        '+02:00': "aucd_countdown_eet.png",
+        '+01:00': "aucd_countdown_cet.png",
+        '+00:00': "aucd_countdown_gmt.png",
+        '-05:00': 'aucd_countdown_est.png',
+        '-08:00': 'aucd_countdown_pst.png'
+      }
+      CITY_OFFSETS.forEach( (tz) => {
+        const dateStr = REF_DATETIME_STR+tz.offset;
+        // console.log(dateStr);
+        tz.msTime = new Date(dateStr).getTime();
+      })
+
+      var app = new Vue({
+        el: '#countdown',
+        data: {
+          cityIndex: -1,
+          hours: -1,
+          minutes: -1,
+          seconds: -1,
+          totalSecs: -1,
+          interval: null,
+          host: null,
+          city_hosts: CITY_HOSTS
+        },
+        computed: {
+          countdownImg: function () {
+            if (this.host && this.totalSecs <= 71.5 && this.totalSecs >= 0) {
+              return CITY_HOSTS[this.host]
+            }
+            return NULL_IMG;
+          },
+          city: function () {
+            if (this.cityIndex === -1) {
+              return 'Unknown'
+            } else {
+              return CITY_OFFSETS[this.cityIndex].city
+            }
+          },
+          offset: function () {
+            if (this.cityIndex === -1) {
+              return 'Unknown'
+            } else {
+              return CITY_OFFSETS[this.cityIndex].offset
+            }
+          },
+          hourFmt: function () {
+            if (this.hours === 0) {
+              return ''
+            } else {
+              return this.hours + ':'
+            }
+          }
+        },
+        created: function () {
+          this.updateCity()
+          this.interval = setInterval(this.tick, 500)
+        },
+        methods: {
+          tick: function () {
+            if (this.cityIndex < 0) {
+              return
+            }
+            const msNow = new Date().getTime()
+            let msUntil = CITY_OFFSETS[this.cityIndex].msTime - msNow
+            if (msUntil < 0) {
+              if (msUntil > -9000) {
+                return
+              }
+              this.updateCity()
+              msUntil = CITY_OFFSETS[this.cityIndex].msTime - msNow
+            }
+
+            this.hours = Math.floor((msUntil % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
+            this.minutes = Math.floor((msUntil % (1000 * 60 * 60)) / (1000 * 60))
+            this.seconds = Math.floor((msUntil % (1000 * 60)) / 1000)
+            this.totalSecs = msUntil / 1000
+          },
+          updateCity: function () {
+            const now = new Date().getTime()
+            for (let i=0; i<CITY_OFFSETS.length; i++) {
+              const msUntil = CITY_OFFSETS[i].msTime - now
+              if (msUntil > 0) {
+                this.cityIndex = i
+                break
+              }
+            }
+            if (this.cityIndex === -1) {
+              console.log(`${REF_DATETIME_STR} is in the past for all time zones`)
+              this.host = null
+            } else {
+              console.log(`City updated to: ${CITY_OFFSETS[this.cityIndex].city}`)
+              if (typeof CITY_HOSTS[this.offset] !== 'undefined') {
+                this.host = this.offset
+              } else {
+                this.host = null
+              }
+            }            
+            return this.cityIndex
+          }
+        }
+      });
+    </script>
+  </body>
+</html>
