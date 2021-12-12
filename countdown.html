@@ -1,3 +1,4 @@
+<!DOCTYPE html>
 <html>
   <head>
     <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
@@ -47,18 +48,23 @@
   </head>
   <body>
     <div id="countdown">
-      <div class="minor-container" v-show="seconds>=0">
+      <div class="minor-container" v-show="this.seconds>=0 && !eodaoe">
         <span class="bold">NEXT REGION:</span>
         {{city}} in {{hourFmt}}{{minutes.toString().padStart(2, 0)}}:{{seconds.toString().padStart(2, 0)}}
       </div>
+      <div class="minor-container" v-show="eodaoe">
+        <span class="bold">Welcome to 2022!</span>
+      </div>
       <div class="major-container">
-        <div class="major-content" v-for="(srcUrl, host) in city_hosts">
-          <video class="overlap-video" v-bind:ref="host" v-bind:src="srcUrl" width=400></video>
+        <div class="major-content">
+          <video ref="hostVideo" preload="auto" width=400></video>
         </div>
       </div>
     </div>
     <script>
-      const REF_DATETIME_STR = '2021-12-11T23:48:00'
+      const REF_DATETIME_STR = '2021-12-12T15:32:00'
+      const VIDEO_PRE_MS = 10000
+      const TICK_INTERVAL_MS = 100
       var CITY_OFFSETS = [
         { offset: '+14:00', city: 'UTC+14 Apia, Tabwakea Village, Line Islands' },
         { offset: '+13:00', city: 'UTC+13 Auckland, Suva (Fiji), Tokelau, Tonga' },
@@ -86,7 +92,8 @@
         { offset: '-09:00', city: 'UTC-9 Anchorage, Rikitea' },
         { offset: '-10:00', city: 'UTC-10 Honolulu, Avarua (Cook Islands)' },
         { offset: '-11:00', city: 'UTC-11 Tāfuna, Alofi (Niue)' },
-        { offset: '-12:00', city: 'UTC-12 Uninhabited Islands' }
+        { offset: '-12:00', city: 'UTC-12 Howland and Baker Islands (Uninhabited), End of Day AoE' },
+        { offset: '-13:00', city: '2022 AoE'}
       ]
       const CITY_HOSTS = {
         '+09:00': "../alpha-bounce-vp9.webm",
@@ -94,8 +101,8 @@
         '+02:00': "../alpha-bounce-vp9.webm",
         '+01:00': "../alpha-bounce-vp9.webm",
         '+00:00': "../alpha-bounce-vp9.webm",
-        '-05:00': '../alpha-bounce-vp9.webm',
-        '-08:00': '../alpha-bounce-vp9.webm'
+        '-07:00': '../alpha-bounce-vp9.webm',
+        '-08:00': '../10sec.webm'
       }
       CITY_OFFSETS.forEach( (tz) => {
         const dateStr = REF_DATETIME_STR+tz.offset;
@@ -113,6 +120,7 @@
           totalSecs: -1,
           interval: null,
           host: null,
+          eodaoe: false,
           city_hosts: CITY_HOSTS
         },
         computed: {
@@ -138,9 +146,9 @@
             }
           }
         },
-        created: function () {
+        mounted: function () {
           this.updateCity()
-          this.interval = setInterval(this.tick, 500)
+          this.interval = setInterval(this.tick, TICK_INTERVAL_MS)
         },
         methods: {
           tick: function () {
@@ -148,17 +156,25 @@
               return
             }
             const msNow = new Date().getTime()
-            let msUntil = CITY_OFFSETS[this.cityIndex].msTime - msNow
+            let msUntil = CITY_OFFSETS[this.cityIndex].msTime - msNow + (1000 - TICK_INTERVAL_MS)
             if (msUntil < 0) {
               if (msUntil > -9000) {
                 return
               }
               this.updateCity()
+              if (this.cityIndex === CITY_OFFSETS.length-1) {
+                // We're past EOD AOE, no more countdowns
+                clearInterval(this.interval)
+                this.eodaoe = true
+                console.log("EOD AOE - Countdown complete!")
+              }
               msUntil = CITY_OFFSETS[this.cityIndex].msTime - msNow
-            } else if (msUntil < 75000) {
+            } else if (msUntil <= VIDEO_PRE_MS + TICK_INTERVAL_MS) {
               // Start playing video if city is hosted and it hasn't started already
-              if (this.host && this.$refs[this.host][0].paused) {
-                this.$refs[this.host][0].play()
+              if (this.host && this.$refs.hostVideo.paused) {
+                console.log("Playing hosted video: "+this.$refs.hostVideo.src)
+                this.$refs.hostVideo.play()
+                this.host = null // make sure we play only once
               }
             }
 
@@ -179,10 +195,16 @@
             if (this.cityIndex === -1) {
               console.log(`${REF_DATETIME_STR} is in the past for all time zones`)
               this.host = null
+              this.eodaoe = true
             } else {
               console.log(`City updated to: ${CITY_OFFSETS[this.cityIndex].city}`)
               if (typeof CITY_HOSTS[this.offset] !== 'undefined') {
+                // The new city will be hosted
                 this.host = this.offset
+
+                // Prepare host video
+                this.$refs.hostVideo.src = CITY_HOSTS[this.host]
+                this.$refs.hostVideo.load()
               } else {
                 this.host = null
               }
