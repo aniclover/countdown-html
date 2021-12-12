@@ -26,27 +26,22 @@
         position: absolute;
         width: 300px;
         margin-top: 7px;
-        margin-left: 1193px;
+        margin-left: 1520px;
       }
       .major-content {
         margin: auto;
         width: 90%;
         font-size: 20pt;
         text-align: center;
+        /* position: relative; */
+      }
+      .overlap-video {
+        position: absolute;
+        top: 0;
+        left: 0;
       }
       .host {
         font-size: 36pt;
-      }
-      .hosted-timer {
-        position: absolute;
-        font-size: 128pt;
-        text-align:center;
-        margin: auto;
-        width: 100%;
-        margin-top: 400px;
-      }
-      .preload {
-        display: none;
       }
     </style>
   </head>
@@ -56,18 +51,14 @@
         <span class="bold">NEXT REGION:</span>
         {{city}} in {{hourFmt}}{{minutes.toString().padStart(2, 0)}}:{{seconds.toString().padStart(2, 0)}}
       </div>
-      <div class="major-container" v-show="host">
-        <div class="major-content">
-          <img v-bind:src="countdownImg">
+      <div class="major-container">
+        <div class="major-content" v-for="(srcUrl, host) in city_hosts">
+          <video class="overlap-video" v-bind:ref="host" v-bind:src="srcUrl" width=400></video>
         </div>
-      </div>
-      <div class="preload" v-for="imgSrc in city_hosts">
-        <img v-bind:src="imgSrc">
       </div>
     </div>
     <script>
-      const NULL_IMG = '../transparent.png'
-      const REF_DATETIME_STR = '2021-01-01T00:00:00'
+      const REF_DATETIME_STR = '2021-12-11T23:48:00'
       var CITY_OFFSETS = [
         { offset: '+14:00', city: 'UTC+14 Apia, Tabwakea Village, Line Islands' },
         { offset: '+13:00', city: 'UTC+13 Auckland, Suva (Fiji), Tokelau, Tonga' },
@@ -75,7 +66,7 @@
         { offset: '+11:00', city: 'UTC+11 Sydney, Nouméa, Solomon Islands, Vanuatu, Yuzhno-Sakhalinsk' },
         { offset: '+10:00', city: 'UTC+10 Brisbane, Guam, Papua New Guinea, Khabarovsk' },
         { offset: '+09:00', city: 'UTC+9 Tokyo, Seoul, East Timor, Yakutsk' },
-        { offset: '+08:00', city: 'UTC+8 Singapore, Taipei, Beijing, Kuala Lumpur, Ulan Bator, Irkutsk' },
+        { offset: '+08:00', city: 'UTC+8 Taipei, Singapore, Hong Kong, Manila, Ulan Bator, Irkutsk' },
         { offset: '+07:00', city: 'UTC+7 Bangkok, Jakarta, Hanoi, Phnom Penh, Novosibirsk' },
         { offset: '+06:00', city: 'UTC+6 Dhaka, Thumphu (Bhutan), Bishkek (Kyrgyzstan), Omsk' },
         { offset: '+05:00', city: 'UTC+5 Karachi, Tashkent, Malé (Maldives), Yekaterinburg' },
@@ -98,13 +89,13 @@
         { offset: '-12:00', city: 'UTC-12 Uninhabited Islands' }
       ]
       const CITY_HOSTS = {
-        '+09:00': "aucd_countdown_meltup.png",
-        '+08:00': "aucd_countdown_sgtw.png",
-        '+02:00': "aucd_countdown_eet.png",
-        '+01:00': "aucd_countdown_cet.png",
-        '+00:00': "aucd_countdown_gmt.png",
-        '-05:00': 'aucd_countdown_est.png',
-        '-08:00': 'aucd_countdown_pst.png'
+        '+09:00': "../alpha-bounce-vp9.webm",
+        '+08:00': "../alpha-bounce-vp9.webm",
+        '+02:00': "../alpha-bounce-vp9.webm",
+        '+01:00': "../alpha-bounce-vp9.webm",
+        '+00:00': "../alpha-bounce-vp9.webm",
+        '-05:00': '../alpha-bounce-vp9.webm',
+        '-08:00': '../alpha-bounce-vp9.webm'
       }
       CITY_OFFSETS.forEach( (tz) => {
         const dateStr = REF_DATETIME_STR+tz.offset;
@@ -125,12 +116,6 @@
           city_hosts: CITY_HOSTS
         },
         computed: {
-          countdownImg: function () {
-            if (this.host && this.totalSecs <= 71.5 && this.totalSecs >= 0) {
-              return CITY_HOSTS[this.host]
-            }
-            return NULL_IMG;
-          },
           city: function () {
             if (this.cityIndex === -1) {
               return 'Unknown'
@@ -170,6 +155,11 @@
               }
               this.updateCity()
               msUntil = CITY_OFFSETS[this.cityIndex].msTime - msNow
+            } else if (msUntil < 75000) {
+              // Start playing video if city is hosted and it hasn't started already
+              if (this.host && this.$refs[this.host][0].paused) {
+                this.$refs[this.host][0].play()
+              }
             }
 
             this.hours = Math.floor((msUntil % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
