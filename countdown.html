@@ -44,6 +44,9 @@
       .host {
         font-size: 36pt;
       }
+      .preload {
+        display: none;
+      }
     </style>
   </head>
   <body>
@@ -57,13 +60,17 @@
       </div>
       <div class="major-container">
         <div class="major-content">
-          <video ref="hostVideo" preload="auto" width=400></video>
+          <video ref="hostVideo" v-show="showHostedVideo" preload="auto" width=400></video>
+          <img ref="hostImg" v-show="showHostedImg"></img>
         </div>
+      </div>
+      <div class="preload">
+        <img ref="preloadImg"></img>
       </div>
     </div>
     <script>
-      const REF_DATETIME_STR = '2021-12-12T15:32:00'
-      const VIDEO_PRE_MS = 10000
+      const REF_DATETIME_STR = '2021-12-17T17:57:00'
+      const VIDEO_PRE_MS = 71000
       const TICK_INTERVAL_MS = 100
       var CITY_OFFSETS = [
         { offset: '+14:00', city: 'UTC+14 Apia, Tabwakea Village, Line Islands' },
@@ -101,7 +108,7 @@
         '+02:00': "../alpha-bounce-vp9.webm",
         '+01:00': "../alpha-bounce-vp9.webm",
         '+00:00': "../alpha-bounce-vp9.webm",
-        '-07:00': '../alpha-bounce-vp9.webm',
+        '-07:00': '../aucd_countdown_gmt.png',
         '-08:00': '../10sec.webm'
       }
       CITY_OFFSETS.forEach( (tz) => {
@@ -121,6 +128,8 @@
           interval: null,
           host: null,
           eodaoe: false,
+          showHostedVideo: false,
+          showHostedImg: false,
           city_hosts: CITY_HOSTS
         },
         computed: {
@@ -170,12 +179,7 @@
               }
               msUntil = CITY_OFFSETS[this.cityIndex].msTime - msNow
             } else if (msUntil <= VIDEO_PRE_MS + TICK_INTERVAL_MS) {
-              // Start playing video if city is hosted and it hasn't started already
-              if (this.host && this.$refs.hostVideo.paused) {
-                console.log("Playing hosted video: "+this.$refs.hostVideo.src)
-                this.$refs.hostVideo.play()
-                this.host = null // make sure we play only once
-              }
+              this.playHost()
             }
 
             this.hours = Math.floor((msUntil % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
@@ -203,13 +207,44 @@
                 this.host = this.offset
 
                 // Prepare host video
-                this.$refs.hostVideo.src = CITY_HOSTS[this.host]
-                this.$refs.hostVideo.load()
+                this.preloadHost()
               } else {
                 this.host = null
               }
             }            
             return this.cityIndex
+          },
+          preloadHost: function() {
+            var src = CITY_HOSTS[this.host]
+            var lowerSrc = src.toLowerCase()
+            if (lowerSrc.endsWith(".webm")) {
+              this.showHostedImg = false
+              this.showHostedVideo = true
+              this.$refs.hostVideo.src = src
+              this.$refs.hostVideo.load()
+            } else if (lowerSrc.endsWith(".png")) {
+              this.showHostedImg = false
+              this.showHostedVideo = false
+              this.$refs.preloadImg.src = src
+            } else {
+              console.log("Failed to preload hosted media that's not webm or png: "+src)
+            }
+          },
+          playHost: function() {
+              if (this.host) {
+                var src = CITY_HOSTS[this.host]
+                var lowerSrc = src.toLowerCase()
+                
+                if (lowerSrc.endsWith(".webm") && this.$refs.hostVideo.paused) {
+                  // Start playing video if city is hosted and it hasn't started already
+                  console.log("Playing hosted video: "+this.$refs.hostVideo.src)
+                  this.$refs.hostVideo.play()
+                } else if (lowerSrc.endsWith(".png")) {
+                  this.$refs.hostImg.src = src
+                  this.showHostedImg = true
+                }
+              }
+              this.host = null // make sure we play only once
           }
         }
       });
